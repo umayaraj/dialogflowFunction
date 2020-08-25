@@ -1,4 +1,4 @@
-const { WebhookClient, Suggestion } = require('dialogflow-fulfillment');
+const { WebhookClient, Suggestion ,Sessiosn} = require('dialogflow-fulfillment');
 const moment = require('moment');
 const firebaseBrain = require('./FirebaseBrain');
 
