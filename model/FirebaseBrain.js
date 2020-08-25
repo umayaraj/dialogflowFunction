@@ -1,8 +1,9 @@
 
 const admin = require('firebase-admin');
-// const { auth } = require('firebase-admin');
-admin.initializeApp();
 
+let goalId ;
+admin.initializeApp();
+//Goal
 async function readGoal(uid) {
     var snapshot = await admin.firestore().collection('Data').doc(uid).collection('Goal').get();
     let user = [];
@@ -25,10 +26,11 @@ async function readSingleGoal(uid, docId) {
 }
 async function saveGoal(uid, data) {
     try {
-        let DocumentReference = admin.firestore().collection('Data').doc(uid).collection('Goal').add(data);
-        return DocumentReference;
+        let DocumentReference = await admin.firestore().collection('Data').doc(uid).collection('Goal').add(data);
+        goalId = DocumentReference.id;
+       return DocumentReference;
     } catch (e) {
-        return e
+        return e;
     }
 }
 async function updateGoal(uid, docId, data) {
@@ -47,7 +49,52 @@ async function deleteGoal(uid, docId) {
         return e
     }
 }
-
+//Task
+async function readTask(uid) {
+    var snapshot = await admin.firestore().collection('Data').doc(uid).collection('Task').get();
+    let task = [];
+    snapshot.forEach(element => {
+        let id = element.id;
+        let data = element.data();
+        task.push({ id, ...data });
+    });
+    return task;
+}
+async function readSingleTask(uid, docId) {
+    var snapshot = await admin.firestore().collection('Data').doc(uid).collection('Task').doc(docId).get();
+    let task = [];
+    snapshot.forEach(element => {
+        let id = element.id;
+        let data = element.data();
+        task.push({ id, ...data });
+    });
+    return task;
+}
+async function saveTask(uid, goalId,data) {
+    try {
+        let DocumentReference = admin.firestore().collection('Data').doc(uid).collection('Goal').doc(goalId).collection('Task').add(data);
+        return DocumentReference;
+    } catch (e) {
+        return e
+    }
+}
+async function updateTask(uid, docId, data) {
+    try {
+        let DocumentReference = admin.firestore().collection('Data').doc(uid).collection('Goal').doc(docId).update({ ...data });
+        return DocumentReference;
+    } catch (e) {
+        return e
+    }
+}
+async function deleteTask(uid, docId) {
+    try {
+        let DocumentReference = admin.firestore().collection('Data').doc(uid).collection('Goal').doc(docId).delete();
+        return DocumentReference;
+    } catch (e) {
+        return e
+    }
+}
+//user
 async function Updateuser(uid, name) {
     let userData = {
         displayName: name,
@@ -71,7 +118,9 @@ module.exports = {
     updateGoal: updateGoal,
     deleteGoal: deleteGoal,
     Updateuser: Updateuser,
-    readUser: readUser
+    readUser: readUser,
+    saveTask:saveTask,
+    goalId:goalId
 }
 
 
