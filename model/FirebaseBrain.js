@@ -1,7 +1,7 @@
 
 const admin = require('firebase-admin');
 
-let goalId ;
+let goalId;
 admin.initializeApp();
 //Goal
 async function readGoal(uid) {
@@ -26,9 +26,10 @@ async function readSingleGoal(uid, docId) {
 }
 async function saveGoal(uid, data) {
     try {
-        let DocumentReference = await admin.firestore().collection('Data').doc(uid).collection('Goal').add(data);
-        goalId = DocumentReference.id;
-       return DocumentReference;
+        return await admin.firestore().collection('Data').doc(uid).collection('Goal').add(data).then((DocumentReference)=>{
+            goalId = DocumentReference.id;
+            return DocumentReference;
+        });
     } catch (e) {
         return e;
     }
@@ -70,7 +71,7 @@ async function readSingleTask(uid, docId) {
     });
     return task;
 }
-async function saveTask(uid, goalId,data) {
+async function saveTask(uid, goalId, data) {
     try {
         let DocumentReference = admin.firestore().collection('Data').doc(uid).collection('Goal').doc(goalId).collection('Task').add(data);
         return DocumentReference;
@@ -119,16 +120,6 @@ module.exports = {
     deleteGoal: deleteGoal,
     Updateuser: Updateuser,
     readUser: readUser,
-    saveTask:saveTask,
-    goalId:goalId
+    saveTask: saveTask,
+    goalId: goalId
 }
-
-
-// function createToken(uid) {
-//     return admin.auth().createCustomToken(uid).then(function (customToken) {
-//         return customToken;
-//     }).catch(function (error) {
-//         console.log('Error creating custom token:', error);
-//         return error;
-//     });
-// }

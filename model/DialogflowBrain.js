@@ -1,6 +1,7 @@
-const { WebhookClient, Suggestion ,Sessiosn} = require('dialogflow-fulfillment');
+const { WebhookClient, Suggestion, Sessiosn } = require('dialogflow-fulfillment');
 const moment = require('moment');
 const firebaseBrain = require('./FirebaseBrain');
+var axios = require('axios');
 
 var goal = { "name": "", "endDate": "", "reason": "", "objective": "", "alarm": true, "status": false };
 var selectedGoaltask = { "name": "", "startDate": "", "startTime": "", "endDate": "", "endTime": "" };
@@ -14,15 +15,17 @@ function master(request, response) {
 
     //   functions.logger.info("Hello logs!", {structuredData: true});
     const agent = new WebhookClient({ request: request, response: response });
-
     // console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
-    console.log('Dialogflow queryText : ' + JSON.stringify(request.body.queryResult.queryText));
-    // console.log('Dialogflow Intent : ' + JSON.stringify(request.body.queryResult.action));
+    console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
 
     async function uidSet(agent) {
-        var userData = await firebaseBrain.readUser(agent.parameters.any);
-        UID = agent.parameters.any;
-        agent.add(`Hello ${userData.displayName}, Good day! What can I do for you today?`);
+        try {
+            var userData = await firebaseBrain.readUser(agent.parameters.any);
+            UID = agent.parameters.any;
+            agent.add(`Hello ${userData.displayName}, Good day! What can I do for you today?`);
+        } catch (error) {
+            agent.add(error);
+        }
     }
     function DefaultFallbackIntent(agent) {
         return agent.add('Sorry i miss that, can you say that again..');
@@ -85,20 +88,37 @@ function master(request, response) {
         return agent.add(new Suggestion('no'));
     }
     //Objective
-    function ResGoalObjective(agent) {
+    function GoalObjectiveCreate(agent) {
         agent.add(`your objective is to ${agent.parameters.objective} ?`);
         agent.add(new Suggestion('yes'));
         return agent.add(new Suggestion('no'));
     }
-    function GoalObjectiveConfirmationYes(agent) {
-        agent.context.delete('awaiting-goal-objective');
-        agent.context.delete('goalobjectivecreate-followup');
-        agent.add(`Awesome! Your Goal is Created Successfully. Now, do you want to add tasks to this goal?`);
-        agent.add(new Suggestion('yes'));
-        agent.add(new Suggestion('no'));
-        goal.objective = agent.parameters.objective;
-        firebaseBrain.saveGoal(UID, goal);
-        return goal = {};
+    async function GoalObjectiveConfirmationYes(agent) {
+        try {
+            agent.context.delete('awaiting-goal-objective');
+            agent.context.delete('goalobjectivecreate-followup');
+            goal.objective = agent.parameters.objective;
+            console.log(`Goal Data` + `uid : ${UID}` + JSON.stringify(goal));
+            var data = JSON.stringify({ "uid": UID, "name": goal.name, "endDate": goal.endDate, "reason": goal.reason, "objective": goal.objective, "alarm": goal.alarm, "status": goal.status });
+            var config = {
+                method: 'post',
+                url: 'https://us-central1-smartbot-decf.cloudfunctions.net/firebaseBrain/goal',
+                headers: { 'Content-Type': 'application/json' },
+                data: data
+            };
+            axios(config)
+                .then((response) => { return console.log(JSON.stringify(response.data)); })
+                .catch((error) => { console.log(error); });
+
+            goal = {};
+            
+            agent.add(`Awesome! Your Goal is Created Successfully. Now, do you want to add tasks to this goal?`);
+            agent.add(new Suggestion('yes'));
+            agent.add(new Suggestion('no'));
+        } catch (error) {
+            console.error(error);
+            agent.add(`Goal Save Error: ${error}`);
+        }
     }
     function GoalObjectiveConfirmationNo(agent) {
         agent.add(`Oh, so your objective for this goal is to ${agent.parameters.objective}, right?`);
@@ -108,8 +128,8 @@ function master(request, response) {
     /*****************************************************Task Create**************************************/
     //Name
     function TaskNameCreate(agent) {
-        agent.context.delete('goalobjectiveconfirmationyes-followup');
-        agent.context.delete('goaljointaskconfirmationyes-followup');
+        // agent.context.delete('goalobjectiveconfirmationyes-followup');
+        // agent.context.delete('goaljointaskconfirmationyes-followup');
         // selectedGoal = firebaseBrain.goalId;
         // if (selectedGoal) {
         agent.add(`${agent.parameters.name},is that Right?`);
@@ -134,8 +154,9 @@ function master(request, response) {
         return agent.add(new Suggestion('no'));
     }
     function GoalJoinTaskConfirmationYes(agent) {
-        task.name = agent.parameters.name;
+        agent.context.delete('goalobjectiveconfirmationyes-followup');
         agent.context.delete('awaiting-task-start');
+        task.name = agent.parameters.name;
         agent.add(`${agent.parameters.name},is that Right?`);
         agent.add(new Suggestion('yes'));
         return agent.add(new Suggestion('no'));
@@ -257,7 +278,7 @@ function master(request, response) {
             task.endTime = agent.parameters.end;
         }
         try {
-            
+
             selectedGoal = firebaseBrain.goalId;
             console.log(`selectedGoal:${selectedGoal}`);
             firebaseBrain.saveTask(UID, selectedGoal, task);
@@ -376,8 +397,8 @@ function master(request, response) {
     intentMap.set('goal.reason.confirmation.yes', GoalReasonConfirmationYes);
     intentMap.set('goal.reason.confirmation.no', GoalReasonConfirmationNo);
     //  Objective
-    intentMap.set('goal.objective.create', ResGoalObjective);
-    intentMap.set('goal.objective.confirmation.yes', GoalObjectiveConfirmationYes);
+    intentMap.set('goal.objective.create', GoalObjectiveCreate); //
+    intentMap.set('goal.objective.confirmation.yes', GoalObjectiveConfirmationYes); //
     intentMap.set('goal.objective.confirmation.no', GoalObjectiveConfirmationNo);
     //Goal Change
     // intentMap.set('goal.name.change.confirmation.yes', ChangeGoalName);
