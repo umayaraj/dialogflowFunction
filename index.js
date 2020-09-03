@@ -60,13 +60,6 @@ app.post('/userInfoUpdate',async (req,res)=>{
     }
 });
 
-app.get('/createToken', async (req, res) => {
-    let uid = 'lWLVfeGhVhZL2yXVFomnXGk8J9K2';
-    let token = await fun.createToken(uid);
-    res.status(200).send(token);
-});
-
-
 exports.firebaseBrain = functions.https.onRequest(app);
 
 exports.dialogflowBrain = functions.https.onRequest(dialogflowBrain.master);

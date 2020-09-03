@@ -26,7 +26,7 @@ async function readSingleGoal(uid, docId) {
 }
 async function saveGoal(uid, data) {
     try {
-        return await admin.firestore().collection('Data').doc(uid).collection('Goal').add(data).then((DocumentReference)=>{
+        return await admin.firestore().collection('Data').doc(uid).collection('Goal').add(data).then((DocumentReference) => {
             goalId = DocumentReference.id;
             return DocumentReference;
         });
@@ -112,6 +112,7 @@ async function readUser(uid) {
             return error;
         });
 }
+
 
 module.exports = {
     readGoal: readGoal,
