@@ -4,19 +4,15 @@ const firebaseBrain = require('./FirebaseBrain');
 var axios = require('axios');
 
 var goal = { "name": "", "endDate": "", "reason": "", "objective": "", "alarm": true, "status": false };
-var selectedGoaltask = { "name": "", "startDate": "", "startTime": "", "endDate": "", "endTime": "" };
-var selectedGoal = "";
-var selectedTask = "";
-var goalList = [];
-var taskList = [];
+var task = { "name": "", "startDateTime": "", "endDateTime": "" };
+var selectedGoalId = "";
 var UID = "";
 
 function master(request, response) {
 
     const agent = new WebhookClient({ request: request, response: response });
-    console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
-    console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
-
+    // console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
+    // console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
     async function uidSet(agent) {
         try {
             var userData = await firebaseBrain.readUser(agent.parameters.any);
@@ -97,7 +93,6 @@ function master(request, response) {
             agent.context.delete('awaiting-goal-objective');
             agent.context.delete('goalobjectivecreate-followup');
             goal.objective = agent.parameters.objective;
-            console.log(`Goal Data` + `uid : ${UID}` + JSON.stringify(goal));
             var data = JSON.stringify({ "uid": UID, "name": goal.name, "endDate": goal.endDate, "reason": goal.reason, "objective": goal.objective, "alarm": goal.alarm, "status": goal.status });
             var config = {
                 method: 'post',
@@ -106,17 +101,21 @@ function master(request, response) {
                 data: data
             };
             axios(config)
-                .then((response) => { return console.log(JSON.stringify(response.data)); })
+                .then((response) => { 
+                    selectedGoal =JSON.stringify(response.data);
+                    console.log(`New Goal Id:${selectedGoal}`);
+                    return selectedGoal;
+                })
                 .catch((error) => { console.log(error); });
 
             goal = {};
-            
             agent.add(`Awesome! Your Goal is Created Successfully. Now, do you want to add tasks to this goal?`);
             agent.add(new Suggestion('yes'));
             agent.add(new Suggestion('no'));
         } catch (error) {
             console.error(error);
-            agent.add(`Goal Save Error: ${error}`);
+            agent.add(`Sorry this time i can't to add goal,Can you try again once?`);
+            
         }
     }
     function GoalObjectiveConfirmationNo(agent) {
@@ -130,102 +129,120 @@ function master(request, response) {
         agent.add(`${agent.parameters.name},is that Right?`);
         agent.add(new Suggestion('yes'));
         return agent.add(new Suggestion('no'));
-        //Hmm... ok. What is the date and time that you will start this task?
     }
-    function TaskNameCreateYes(agent) {
-        // task.name = agent.parameters.name;
-        agent.add(`Nice. Now, what is the starting date and time of the task?`);
-        agent.add(new Suggestion('jun 25th at 5.30am'));
-        return agent.add(new Suggestion('jun 25th at 6.30am'));
-    }
-    function TaskNameConfirmationNo(agent) {
+    function TaskNameCreateNo(agent) {
         agent.add(`${agent.parameters.name},is that Right?`);
         agent.add(new Suggestion('yes'));
         return agent.add(new Suggestion('no'));
     }
-    // //Start Date
-    // function TaskStartCreate(agent) {
-    //     if (agent.parameters.start.date_time) {
-    //         agent.add(`${moment.parseZone(agent.parameters.start.date_time).format('MMMM Do YYYY h:mm A')} ,is that right?`);
-    //     } else if (agent.parameters.start) {
-    //         agent.add(`${moment.parseZone(agent.parameters.start).format('MMMM Do YYYY')} ,is that right?`);
-    //     }
-    //     agent.add(new Suggestion('yes'));
-    //     return agent.add(new Suggestion('no'));
-    // }
-    // function TaskStartConfirmationYes(agent) {
-    //     agent.context.delete('awaiting-task-start');
-    //     agent.context.delete('taskstartcreate-followup');
+    function TaskNameCreateYes(agent) {
+        task.name = agent.parameters.name;
+        agent.add(`Nice. Now, what is the starting date and time of the task?`);
+        agent.add(new Suggestion('jun 25th at 5.30am'));
+        return agent.add(new Suggestion('jun 25th at 6.30am'));
+    }
+    //Start Date
+    function TaskStartCreate(agent) {
+        if (agent.parameters.start.date_time) {
+            agent.add(`${moment.parseZone(agent.parameters.start.date_time).format('MMMM Do YYYY h:mm A')} ,is that right?`);
+        } else if (agent.parameters.start) {
+            agent.add(`${moment.parseZone(agent.parameters.start).format('MMMM Do YYYY')} ,is that right?`);
+        }
+        agent.add(new Suggestion('yes'));
+        return agent.add(new Suggestion('no'));
+    }
+    function TaskStartConfirmationNo(agent) {
+        if (agent.parameters.start.date_time) {
+            agent.add(`${moment.parseZone(agent.parameters.start.date_time).format('MMMM Do YYYY h:mm A')} ,is that right?`);
+        } else if (agent.parameters.start) {
+            agent.add(`${moment.parseZone(agent.parameters.start).format('MMMM Do YYYY')} ,is that right?`);
+        }
+        agent.add(new Suggestion('yes'));
+        return agent.add(new Suggestion('no'));
+    }
+    function TaskStartConfirmationYes(agent) {
+        agent.context.delete('awaiting-task-start');
+        agent.context.delete('taskstartcreate-followup');
 
-    //     if (agent.parameters.start.date_time) {
-    //         task.startTime = agent.parameters.start.date_time;
-    //     } else if (agent.parameters.start) {
-    //         task.startTime = agent.parameters.start;
-    //     }
-    //     return agent.add(`Ok, great. Now, what is the end date and time of the task?`);
-    // }
-    // function TaskStartConfirmationNo(agent) {
-    //     if (agent.parameters.start.date_time) {
-    //         agent.add(`${moment.parseZone(agent.parameters.start.date_time).format('MMMM Do YYYY h:mm A')} ,is that right?`);
-    //     } else if (agent.parameters.start) {
-    //         agent.add(`${moment.parseZone(agent.parameters.start).format('MMMM Do YYYY')} ,is that right?`);
-    //     }
-    //     agent.add(new Suggestion('yes'));
-    //     return agent.add(new Suggestion('no'));
-    // }
-    // //End Date    
-    // function TaskEndCreate(agent) {
-    //     if (agent.parameters.end.date_time) {
-    //         agent.add(`${moment.parseZone(agent.parameters.end.date_time).format('MMMM Do YYYY h:mm A')} ,is that right?`);
-    //     } else if (agent.parameters.end) {
-    //         agent.add(`${moment.parseZone(agent.parameters.end).format('MMMM Do YYYY')} ,is that right?`);
-    //     }
-    //     agent.add(new Suggestion('yes'));
-    //     return agent.add(new Suggestion('no'));
-    // }
-    // function TaskEndConfirmationYes(agent) {
-    //     agent.context.delete('awaiting-task-end');
-    //     agent.context.delete('taskendcreate-followup');
+        if (agent.parameters.start.date_time) {
+            task.startDateTime = agent.parameters.start.date_time;
+        } else if (agent.parameters.start) {
+            task.startDateTime = agent.parameters.start;
+        }
+        agent.add(`Ok, great. Now, what is the end date and time of the task?`);
+        agent.add(new Suggestion('jun 25th at 5.30am'));
+        return agent.add(new Suggestion('jun 25th at 6.30am'));
+    }
+    //End Date    
+    function TaskEndCreate(agent) {
+        if (agent.parameters.end.date_time) {
+            agent.add(`${moment.parseZone(agent.parameters.end.date_time).format('MMMM Do YYYY h:mm A')} ,is that right?`);
+        } else if (agent.parameters.end) {
+            agent.add(`${moment.parseZone(agent.parameters.end).format('MMMM Do YYYY')} ,is that right?`);
+        }
+        agent.add(new Suggestion('yes'));
+        return agent.add(new Suggestion('no'));
+    }
+    function TaskEndConfirmationNo(agent) {
+        if (agent.parameters.end.date_time) {
+            agent.add(`${moment.parseZone(agent.parameters.end.date_time).format('MMMM Do YYYY h:mm A')} ,is that right?`);
+        } else if (agent.parameters.end) {
+            agent.add(`${moment.parseZone(agent.parameters.end).format('MMMM Do YYYY')} ,is that right?`);
+        }
+        agent.add(new Suggestion('yes'));
+        return agent.add(new Suggestion('no'));
+    }
+    async function TaskEndConfirmationYes(agent) {
+        agent.context.delete('awaiting-task-end');
+        agent.context.delete('taskendcreate-followup');
+        if (agent.parameters.end.date_time) {
+            task.endDateTime = agent.parameters.end.date_time;
+        } else if (agent.parameters.end) {
+            task.endDateTime = agent.parameters.end;
+        }
+        try {
+            console.log(`Selected Goal Id:${selectedGoal}`);
+            var data = JSON.stringify({
+                "uid": UID,
+                "selectedGoal": selectedGoalId,
+                "name": task.name,
+                "startDateTime": task.startDateTime,
+                "endDateTime": task.endDateTime,
+                "alarm": false,
+                "status": false
+            });
+            console.log(`task data:${JSON.stringify(data)}`);
+            var config = {
+                method: 'post',
+                url: 'https://us-central1-smartbot-decf.cloudfunctions.net/firebaseBrain/task',
+                headers: { 'Content-Type': 'application/json' },
+                data: data
+            };
+            axios(config)
+                .then((response) => { return console.log(JSON.stringify(response.data)); })
+                .catch((error) => { console.log(error); });
 
-    //     if (agent.parameters.end.date_time) {
-    //         task.endTime = agent.parameters.end.date_time;
-    //     } else if (agent.parameters.end) {
-    //         task.endTime = agent.parameters.end;
-    //     }
-    //     try {
-    //         selectedGoal = firebaseBrain.goalId;
-    //         console.log(`selectedGoal:${selectedGoal}`);
-    //         firebaseBrain.saveTask(UID, selectedGoal, task);
-    //         agent.add(`Your Task Created Successfully`);
-    //         agent.add(new Suggestion('Create Goal'));
-    //         agent.add(new Suggestion('Create Task'));
-    //         agent.add(new Suggestion('Read All Task'));
-    //         return agent.add(new Suggestion('Read All Goal'));
-    //         // return allTaskUpdate();
-    //     } catch (err) {
-    //         console.log(err);
-    //         return agent.add(`Task Creation Failed for PUSH Fun Error`);
-    //     }
-
-    // }
-    // function TaskEndConfirmationNo(agent) {
-    //     if (agent.parameters.end.date_time) {
-    //         agent.add(`${moment.parseZone(agent.parameters.end.date_time).format('MMMM Do YYYY h:mm A')} ,is that right?`);
-    //     } else if (agent.parameters.end) {
-    //         agent.add(`${moment.parseZone(agent.parameters.end).format('MMMM Do YYYY')} ,is that right?`);
-    //     }
-    //     agent.add(new Suggestion('yes'));
-    //     return agent.add(new Suggestion('no'));
-    // }
-   /*******************************************Goal & Task Join********************************************/
-   function GoalJoinTaskConfirmationYes(agent) {
-    agent.context.delete('goalobjectiveconfirmationyes-followup');
-    // agent.context.delete('awaiting-task-start');
-    task.name = agent.parameters.name;
-    agent.add(`${agent.parameters.name},is that Right?`);
-    agent.add(new Suggestion('yes'));
-    return agent.add(new Suggestion('no'));
-}
+            task = {};
+            agent.add(`Your Task Created Successfully`);
+            agent.add(new Suggestion('Create Goal'));
+            agent.add(new Suggestion('Create Task'));
+            agent.add(new Suggestion('Read All Task'));
+            return agent.add(new Suggestion('Read All Goal'));
+            // return allTaskUpdate();
+        } catch (err) {
+            console.log(err);
+            return agent.add(`Task Creation Failed for PUSH Fun Error`);
+        }
+    }
+    /*******************************************Goal & Task Join********************************************/
+    function GoalJoinTaskConfirmationYes(agent) {
+        agent.context.delete('goalobjectiveconfirmationyes-followup');
+        // agent.context.delete('awaiting-task-start');
+        task.name = agent.parameters.name;
+        agent.add(`${agent.parameters.name},is that Right?`);
+        agent.add(new Suggestion('yes'));
+        return agent.add(new Suggestion('no'));
+    }
     let intentMap = new Map();
     intentMap.set('uidSet', uidSet);
     intentMap.set('Default Fallback Intent', DefaultFallbackIntent);
@@ -252,17 +269,17 @@ function master(request, response) {
     //  Name:
     intentMap.set('task.name.create', TaskNameCreate);
     intentMap.set('task.name.create.yes', TaskNameCreateYes);
-    intentMap.set('task.name.confirmation.no', TaskNameConfirmationNo);
-    // //  Start Date:
-    // intentMap.set('task.start.create', TaskStartCreate);
-    // intentMap.set('task.start.confirmation.no', TaskStartConfirmationNo);
-    // intentMap.set('task.start.confirmation.yes', TaskStartConfirmationYes);
-    // //  End Date:
-    // intentMap.set('task.end.create', TaskEndCreate);
-    // intentMap.set('task.end.confirmation.no', TaskEndConfirmationNo);
-    // intentMap.set('task.end.confirmation.yes', TaskEndConfirmationYes);
+    intentMap.set('task.name.create.no', TaskNameCreateNo);
+    //  Start Date:
+    intentMap.set('task.start.create', TaskStartCreate);
+    intentMap.set('task.start.confirmation.no', TaskStartConfirmationNo);
+    intentMap.set('task.start.confirmation.yes', TaskStartConfirmationYes);
+    //  End Date:
+    intentMap.set('task.end.create', TaskEndCreate);
+    intentMap.set('task.end.confirmation.no', TaskEndConfirmationNo);
+    intentMap.set('task.end.confirmation.yes', TaskEndConfirmationYes);
     /*******************************************Goal & Task Join********************************************/
-    intentMap.set('goal.objective.confirmation.yes.yes', GoalJoinTaskConfirmationYes); 
+    intentMap.set('goal.objective.confirmation.yes.yes', GoalJoinTaskConfirmationYes);
 
     agent.handleRequest(intentMap);
 }

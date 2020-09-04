@@ -1,8 +1,8 @@
-
 const admin = require('firebase-admin');
-
-let goalId;
 admin.initializeApp();
+
+var goalId;
+
 //Goal
 async function readGoal(uid) {
     var snapshot = await admin.firestore().collection('Data').doc(uid).collection('Goal').get();
@@ -28,7 +28,7 @@ async function saveGoal(uid, data) {
     try {
         return await admin.firestore().collection('Data').doc(uid).collection('Goal').add(data).then((DocumentReference) => {
             goalId = DocumentReference.id;
-            return DocumentReference;
+            return goalId;
         });
     } catch (e) {
         return e;
@@ -71,10 +71,14 @@ async function readSingleTask(uid, docId) {
     });
     return task;
 }
-async function saveTask(uid, goalId, data) {
+async function saveTask(uid, selectedGoal, data) {
+    // console.log(`uid:${uid}`);
+    // console.log(`selectedGoal:${selectedGoal}`);
+    // console.log(`data:${data}`);
     try {
-        let DocumentReference = admin.firestore().collection('Data').doc(uid).collection('Goal').doc(goalId).collection('Task').add(data);
-        return DocumentReference;
+        return await admin.firestore().collection('Data').doc(uid).collection('Goal').doc(selectedGoal).collection('Task').add(data).then((DocumentReference) => {
+            return DocumentReference;
+        });
     } catch (e) {
         return e
     }
@@ -112,7 +116,9 @@ async function readUser(uid) {
             return error;
         });
 }
-
+function readSelectedGoal() {
+    return goalId
+}
 
 module.exports = {
     readGoal: readGoal,
@@ -122,5 +128,5 @@ module.exports = {
     Updateuser: Updateuser,
     readUser: readUser,
     saveTask: saveTask,
-    goalId: goalId
+    readSelectedGoal: readSelectedGoal
 }

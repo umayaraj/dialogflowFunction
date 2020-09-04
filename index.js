@@ -60,6 +60,20 @@ app.post('/userInfoUpdate',async (req,res)=>{
     }
 });
 
+app.post('/task', async (req, res) => {
+    console.log(`raja:${JSON.stringify(req.body)}`);
+    let uid = req.body.uid;
+    let selectedGoal = req.body.selectedGoal;
+    delete req.body.uid;
+    delete req.body.selectedGoal;
+    try {
+        let docRef = await firebaseBrain.saveTask(uid, selectedGoal, req.body);
+        res.status(201).send(docRef);
+    } catch (e) {
+        res.status(406).send(e);
+    }
+});
+
 exports.firebaseBrain = functions.https.onRequest(app);
 
 exports.dialogflowBrain = functions.https.onRequest(dialogflowBrain.master);
