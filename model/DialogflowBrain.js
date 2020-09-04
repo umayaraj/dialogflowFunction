@@ -4,7 +4,7 @@ const firebaseBrain = require('./FirebaseBrain');
 var axios = require('axios');
 
 var goal = { "name": "", "endDate": "", "reason": "", "objective": "", "alarm": true, "status": false };
-var task = { "name": "", "startDateTime": "", "endDateTime": "" };
+var task = { "name": "", "selectedGoal": "", "startDateTime": "", "endDateTime": "" };
 var selectedGoalId = "";
 var UID = "";
 
@@ -88,7 +88,7 @@ function master(request, response) {
         agent.add(new Suggestion('yes'));
         return agent.add(new Suggestion('no'));
     }
-    async function GoalObjectiveConfirmationYes(agent) {
+    function GoalObjectiveConfirmationYes(agent) {
         try {
             agent.context.delete('awaiting-goal-objective');
             agent.context.delete('goalobjectivecreate-followup');
@@ -101,12 +101,11 @@ function master(request, response) {
                 data: data
             };
             axios(config)
-                .then((response) => { 
-                    selectedGoal =JSON.stringify(response.data);
-                    console.log(`New Goal Id:${selectedGoal}`);
-                    return selectedGoal;
-                })
-                .catch((error) => { console.log(error); });
+                .then((response) => {
+                    selectedGoalId = response.data;
+                    console.log(`New Goal Id:${selectedGoalId}`);
+                    return JSON.stringify(selectedGoalId);
+                }).catch((error) => { console.log(error); });
 
             goal = {};
             agent.add(`Awesome! Your Goal is Created Successfully. Now, do you want to add tasks to this goal?`);
@@ -115,7 +114,6 @@ function master(request, response) {
         } catch (error) {
             console.error(error);
             agent.add(`Sorry this time i can't to add goal,Can you try again once?`);
-            
         }
     }
     function GoalObjectiveConfirmationNo(agent) {
@@ -193,6 +191,7 @@ function master(request, response) {
         return agent.add(new Suggestion('no'));
     }
     async function TaskEndConfirmationYes(agent) {
+        console.log(`Selected Goal Id:${selectedGoalId}`);
         agent.context.delete('awaiting-task-end');
         agent.context.delete('taskendcreate-followup');
         if (agent.parameters.end.date_time) {
@@ -201,7 +200,6 @@ function master(request, response) {
             task.endDateTime = agent.parameters.end;
         }
         try {
-            console.log(`Selected Goal Id:${selectedGoal}`);
             var data = JSON.stringify({
                 "uid": UID,
                 "selectedGoal": selectedGoalId,
@@ -211,7 +209,6 @@ function master(request, response) {
                 "alarm": false,
                 "status": false
             });
-            console.log(`task data:${JSON.stringify(data)}`);
             var config = {
                 method: 'post',
                 url: 'https://us-central1-smartbot-decf.cloudfunctions.net/firebaseBrain/task',
@@ -221,7 +218,6 @@ function master(request, response) {
             axios(config)
                 .then((response) => { return console.log(JSON.stringify(response.data)); })
                 .catch((error) => { console.log(error); });
-
             task = {};
             agent.add(`Your Task Created Successfully`);
             agent.add(new Suggestion('Create Goal'));
