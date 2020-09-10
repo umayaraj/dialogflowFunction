@@ -3,11 +3,11 @@ const express = require('express');
 const firebaseBrain = require('./model/FirebaseBrain');
 const dialogflowBrain = require('./model/DialogflowBrain');
 const app = express();
-
+//Server Run Test
 app.get('/', (req, res) => {
     res.send('Server Is Live');
 });
-
+//Goal CURD 
 app.get('/goal/:id', async (req, res) => {
     let uid = req.params.id;
     var data = await firebaseBrain.readGoal(uid);
@@ -48,7 +48,7 @@ app.delete('/goal',async (req,res)=>{
         res.status(400).send(e);
     }
 });
-
+// User Information 
 app.post('/userInfoUpdate',async (req,res)=>{
     let uid = req.body.uid;
     let name = req.body.name;
@@ -59,7 +59,7 @@ app.post('/userInfoUpdate',async (req,res)=>{
         res.status(400).send(e);
     }
 });
-
+//Goal CURD
 app.post('/task', async (req, res) => {
     console.log(`raja:${JSON.stringify(req.body)}`);
     let uid = req.body.uid;
@@ -71,6 +71,47 @@ app.post('/task', async (req, res) => {
         res.status(201).send(docRef);
     } catch (e) {
         res.status(406).send(e);
+    }
+});
+
+app.put('/task',async (req,res)=>{
+    let uid = req.body.uid;
+    let docId = req.body.docId;
+    let taskId = req.body.taskId;
+    delete req.body.uid;
+    delete req.body.docId;
+    delete req.body.taskId;
+    try {
+        let docRef = await firebaseBrain.updateGoal(uid, docId, taskId, req.body);
+        res.status(201).send(docRef);
+    } catch (e) {
+        res.status(400).send(e);
+    }
+}); 
+
+app.get('/task/:id', async (req, res) => {
+    let uid = req.params.id;
+    try{
+    var data = await firebaseBrain.readTask(uid);
+    res.status(200).send(data);
+    } catch(e){
+        console.log(e);
+        res.status(400).send('Task Info Cant read');
+    }
+});
+
+app.delete('/task',async (req,res)=>{
+    let uid = req.body.uid;
+    let docId = req.body.docId;
+    let taskId = req.body.taskId;
+    delete req.body.uid;
+    delete req.body.docId;
+    delete req.body.taskId;
+    try {
+        let docRef = await firebaseBrain.deleteGoal(uid,docId,taskId);
+        res.status(201).send(docRef);
+    } catch (e) {
+        res.status(400).send(e);
     }
 });
 

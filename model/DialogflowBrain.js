@@ -2,11 +2,14 @@ const { WebhookClient, Suggestion, Sessiosn } = require('dialogflow-fulfillment'
 const moment = require('moment');
 const firebaseBrain = require('./FirebaseBrain');
 var axios = require('axios');
+const admin = require('firebase-admin');
 
 var goal = { "name": "", "endDate": "", "reason": "", "objective": "", "alarm": true, "status": false };
 var task = { "name": "", "selectedGoal": "", "startDateTime": "", "endDateTime": "" };
 var selectedGoalId = "";
 var UID = "";
+var taskList = [];
+var goalList = [];
 
 function master(request, response) {
 
@@ -239,6 +242,179 @@ function master(request, response) {
         agent.add(new Suggestion('yes'));
         return agent.add(new Suggestion('no'));
     }
+    function GoalJoinTaskConfirmationNo(agent) {
+        agent.add(`No Problem, Now you can say one of the commands below ..`);
+        agent.add(new Suggestion('create Task'));
+        agent.add(new Suggestion('create Goal'));
+        agent.add(new Suggestion('read All Goal'));
+    }
+    /***************************************************** Read **************************************/
+    async function readAllGoal() {
+        let tempRes = [];
+        goalList = [];
+        console.log(`Current user Id:${UID}`);
+        var snapshot = await admin.firestore().collection('Data').doc(UID).collection('Goal').get();
+        snapshot.forEach(element => {
+            let id = element.id;
+            let data = element.data();
+            goalList.push({ id, ...data });
+        });
+        goalList.forEach((goal, goalIndex) => {
+            let cusText = "";
+            if (goalIndex === 0) {
+                cusText = "Your First Goal";
+            } else {
+                cusText = "and Next Goal";
+            }
+            tempRes.push(`${cusText} Name ${goal.name} ${moment(goal.endDate).format("MMMM Do YYYY")} , You want to achieve this goal because: ${goal.reason},and your Objective for this goal is: ${goal.objective}`);
+        });
+        console.log(goalList.length);
+        console.table(goalList);
+
+        if (goalList.length === 0) { //If the user don't have any goal then this part will give output 
+            agent.add(`Hey, I can see you that don't have any goals set up right now. If you want you can say add goal and i'll be happy to help`);
+            agent.add(`Do you want to create a new goal or project for you?`);
+            agent.add(new Suggestion('Yes'));
+            return agent.add(new Suggestion('No'));
+        } else if (goalList.length === 1) {  //If the user have only one goal then don't need to select that goal
+            selectedGoalId = goalList[1].id !== null ? goalList[0].id : null;
+            agent.add(tempRes);
+            agent.add(new Suggestion('create Task'));
+            agent.add(new Suggestion('create Goal'));
+            agent.add(new Suggestion('Review Task'));
+            agent.add(new Suggestion('delete goal'));
+            agent.add(new Suggestion('Change goal Name'));
+            agent.add(new Suggestion('Change goal End Date'));
+            return agent.add(new Suggestion('Change goal Reason'));
+        } else {
+            agent.add(`Hi You Have Total ${tempRes.length} Goals ,These Are as follows :`);
+            agent.add(tempRes);
+            agent.add(new Suggestion('select first goal'));
+            agent.add(new Suggestion('select second goal'));
+            return agent.add(new Suggestion('select third goal'));
+        }
+    }
+    function readAllGoalYes(agent) {
+        goal.name = agent.parameters.goal;
+        agent.context.delete('goalnamecreate-followup');
+        agent.context.delete('create-goal-name');
+        agent.add(`That’s great. Now, what date do you wish to achieve this goal?`);
+        agent.add(new Suggestion('june 25th'));
+        return agent.add(new Suggestion('jan 1st'));
+    }
+    function readAllGoalNo(agent) {
+        agent.add(`No Problem, Now you can say one of the commands below ..`);
+        agent.add(new Suggestion('create Goal'));
+        agent.add(new Suggestion('create Task'));
+        agent.add(new Suggestion('read All Goal'));
+    }
+
+    async function readTask() {
+    }
+    /*****************************************************Select **************************************/
+    function selectGoal(agent) {
+        if (agent.parameters.ordinal || agent.parameters.number) {
+            let userInput = agent.parameters.ordinal ? agent.parameters.ordinal : agent.parameters.number;
+            if (goalList) {
+                let temp = goalList[userInput - 1];
+                if (temp) {
+                    selectedGoalId = temp.id;
+                    selectedGoal = temp;
+                    agent.add(`You have selected goal  ${temp.name}`);
+                    agent.add(`Great, Now you can say one of the commands below ..`);
+                    agent.add(new Suggestion('create Task'));
+                    agent.add(new Suggestion('Review Task'));
+                    agent.add(new Suggestion('delete goal'));
+                    agent.add(new Suggestion('Change goal Name'));
+                    agent.add(new Suggestion('Change goal End Date'));
+                    return agent.add(new Suggestion('Change goal Reason'));
+                } else {
+                    agent.add(`Oh..Sorry, the goal number you selected was never added before`);
+                    return agent.add(new Suggestion('Read All Goal'));
+                }
+
+            } else {
+                return agent.add(`Hmmm… I don't think you have selected a goal. Maybe try doing that first and then lets talk`);
+            }
+        } else {
+            return agent.add(`No Goal Selected,Please Try Again`);
+        }
+    }
+    /*****************************************************Delete **************************************/
+    function DeleteGoal(agent) {
+        if (selectedGoalId) {
+            agent.add(`Are you sure,Do you want to delete this Goal?`);
+            agent.add(new Suggestion('yes'));
+            return agent.add(new Suggestion('no'));
+        } else {
+            return agent.add(`Uhhh...maybe you should first select a goal, because i don't know which goal you would like to change`);
+        }
+    }
+    async function DeleteGoalConfirmationYes(agent) {
+        agent.context.delete('deletegoal-followup');
+        agent.context.delete('delete-goal');
+        if (selectedGoalId) {
+            try {
+                await firebaseBrain.deleteGoal(UID, selectedGoalId);
+                agent.add(`Your selected goal deleted successfully`);
+                agent.add(new Suggestion('Create Goal'));
+                agent.add(new Suggestion('Create Task'));
+                agent.add(new Suggestion('Read All Task'));
+                return agent.add(new Suggestion('Read All Goal'));
+            } catch (e) {
+                return agent.add(`Sorry, something went wrong when tried to delete your goal. May be try again?`);
+            }
+        } else {
+            return agent.add(`would you mind try again, as something was not right`);
+        }
+    }
+    function DeleteGoalConfirmationNo(agent) {
+        agent.context.delete('deletegoal-followup');
+        agent.context.delete('delete-goal');
+        agent.add(new Suggestion('Read All Goal'));
+        return agent.add(`its okay you can delete later`);
+    }
+    /*****************************************************Goal Change**************************************/
+    async function ChangeGoalName(agent) {
+        agent.context.delete('awaiting-goal-name-change');
+        agent.context.delete('goalnamecreate-followup');
+        if (selectedGoalId) {
+            await firebaseBrain.updateGoal(UID, selectedGoalId, { "name": agent.parameters.name });
+            return agent.add(`Goal Name Changed Successfully`);
+        } else {
+            return agent.add(`Please Select Goal first then Use Change Functionality`);
+        }
+    }
+    async function ChangeGoalDate(agent) {
+        agent.context.delete('awaiting-goal-date-change');
+        agent.context.delete('goaldatechange-followup');
+        if (selectedGoalId) {
+            await firebaseBrain.updateGoal(UID, selectedGoalId, { "endDate": agent.parameters.date });
+            return agent.add(`Goal Date Changed Successfully`);
+        } else {
+            return agent.add(`Please Select Goal first then Use Change Functionality`);
+        }
+    }
+    async function ChangeGoalReason(agent) {
+        agent.context.delete('goalreasonchange-followup');
+        agent.context.delete('awaiting-goal-reason-change');
+        if (selectedGoalId) {
+            await firebaseBrain.updateGoal(UID, selectedGoalId, { "reason": agent.parameters.reason });
+            return agent.add(`Goal Reason Changed Successfully`);
+        } else {
+            return agent.add(`Please Select Goal first then Use Change Functionality`);
+        }
+    }
+    async function ChangeGoalObjective(agent) {
+        agent.context.delete('goalobjectivechange-followup');
+        agent.context.delete('awaiting-goal-objective-change');
+        if (selectedGoalId) {
+            await firebaseBrain.updateGoal(UID, selectedGoalId, { "objective": agent.parameters.objective });
+            return agent.add(`Goal Objective Changed Successfully`);
+        } else {
+            return agent.add(`Please Select Goal first then Use Change Functionality`);
+        }
+    }
     let intentMap = new Map();
     intentMap.set('uidSet', uidSet);
     intentMap.set('Default Fallback Intent', DefaultFallbackIntent);
@@ -258,9 +434,14 @@ function master(request, response) {
     intentMap.set('goal.reason.confirmation.yes', GoalReasonConfirmationYes);
     intentMap.set('goal.reason.confirmation.no', GoalReasonConfirmationNo);
     //  Objective
-    intentMap.set('goal.objective.create', GoalObjectiveCreate); //
-    intentMap.set('goal.objective.confirmation.yes', GoalObjectiveConfirmationYes); //
+    intentMap.set('goal.objective.create', GoalObjectiveCreate);
+    intentMap.set('goal.objective.confirmation.yes', GoalObjectiveConfirmationYes);
     intentMap.set('goal.objective.confirmation.no', GoalObjectiveConfirmationNo);
+    //Goal Change
+    intentMap.set('goal.name.change.confirmation.yes', ChangeGoalName);
+    intentMap.set('goal.date.change.confirmation.yes', ChangeGoalDate);
+    intentMap.set('goal.reason.change.confirmation.yes', ChangeGoalReason);
+    intentMap.set('goal.objective.change.confirmation.yes', ChangeGoalObjective);
     /*******************************************Task Create********************************************/
     //  Name:
     intentMap.set('task.name.create', TaskNameCreate);
@@ -274,8 +455,31 @@ function master(request, response) {
     intentMap.set('task.end.create', TaskEndCreate);
     intentMap.set('task.end.confirmation.no', TaskEndConfirmationNo);
     intentMap.set('task.end.confirmation.yes', TaskEndConfirmationYes);
+    //Task Change
+    // intentMap.set('task.name.change.confirmation.yes', ChangeTaskName);
+    // intentMap.set('task.start.change.confirmation.yes', ChangeTaskStart);
+    // intentMap.set('task.end.change.confirmation.yes', ChangeTaskEnd);
     /*******************************************Goal & Task Join********************************************/
     intentMap.set('goal.objective.confirmation.yes.yes', GoalJoinTaskConfirmationYes);
+    intentMap.set('goal.objective.confirmation.yes.no', GoalJoinTaskConfirmationNo);
+    /*******************************************Read Intent********************************************/
+    intentMap.set('read.all.goal', readAllGoal);
+    intentMap.set('read.all.goal.yes', readAllGoalYes);
+    intentMap.set('read.all.goal.no', readAllGoalNo);
+    // intentMap.set('read.task', readTask);
+    // intentMap.set('summary', summary);
+    /*******************************************Select Intent********************************************/
+    intentMap.set('goal.select', selectGoal);
+    // intentMap.set('task.select', selectTask);
+    /*******************************************Delete Intent********************************************/
+    //Goal
+    intentMap.set('delete.goal', DeleteGoal);
+    intentMap.set('delete.goal.confirmation.no', DeleteGoalConfirmationNo);
+    intentMap.set('delete.goal.confirmation.yes', DeleteGoalConfirmationYes);
+    //Task
+    // intentMap.set('delete.task', DeleteTask);
+    // intentMap.set('delete.task.confirmation.yes', DeleteTaskConfirmationNo);
+    // intentMap.set('delete.task.confirmation.yes', DeleteTaskConfirmationYes);
 
     agent.handleRequest(intentMap);
 }
