@@ -68,13 +68,29 @@ async function updateTask(uid, goalId, taskId, data) {
 async function readTask(uid) {
     let goalDocRef = await admin.firestore().collection('Data').doc(uid).collection('Goal').get();
     let taskList = [];
-    goalDocRef.forEach(async snapshot => {
-        let taskDocRef = await admin.firestore().collection('Data').doc(uid).collection('Goal').doc(snapshot.id).collection('Task').get();
-        taskDocRef.forEach(task => {
+    goalDocRef.forEach(async (goal) => {
+        let taskDocRef = await admin.firestore().collection('Data').doc(uid).collection('Goal').doc(goal.id).collection('Task').get();
+        taskDocRef.forEach((task) => {
             taskList.push({ id: task.id, ...task.data() });
         });
+        console.log(`Log1:${JSON.stringify(taskList)}`);
     });
+    console.log(`Log2:${JSON.stringify(taskList)}`);
     return taskList;
+
+// DataArray1 = [];
+// goalRef.child(UID).on("value", (snap) => {
+//     snap.forEach(goalsnap => {
+//         taskRef.child(goalsnap.key).once("value").then(tasksnap => {
+//             tasksnap.forEach(snap => {
+//                 let childData = snap.val();
+//                 DataArray1.push(childData);
+//             });
+//         });
+//     });
+// });
+// console.log('Read All Task Completeed');
+
 }
 async function readSingleGoalTask(uid, docId) {
     var taskDocRef = await admin.firestore().collection('Data').doc(uid).collection('Goal').doc(docId).collection('Task').get();
@@ -111,14 +127,18 @@ async function readUser(uid) {
 }
 
 module.exports = {
+    //Goal
     saveGoal: saveGoal,
     updateGoal: updateGoal,
     readGoal: readGoal,
     deleteGoal: deleteGoal,
+    //Task
     saveTask: saveTask,
     updateTask: updateTask,
     readTask: readTask,
     readSingleGoalTask: readSingleGoalTask,
     deleteTask: deleteTask,
-    readUser: readUser
+    //User
+    readUser: readUser,
+    Updateuser: Updateuser
 }

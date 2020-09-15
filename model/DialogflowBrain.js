@@ -255,8 +255,8 @@ function master(request, response) {
         goalList = [];
         console.log(`Current user Id:${UID}`);
         try {
-        var snapshot = await admin.firestore().collection('Data').doc(UID).collection('Goal').get();
-        }catch(e){
+            var snapshot = await admin.firestore().collection('Data').doc(UID).collection('Goal').get();
+        } catch (e) {
             console.log(e);
             return agent.add(`While read gola get Error,so can you Go back and come and try agin..`);
         }
@@ -369,17 +369,25 @@ function master(request, response) {
         }
 
     }
-    function ReadTaskCreateYes(agent){
+    function ReadTaskCreateYes(agent) {
         agent.add(`${agent.parameters.name},is that Right?`);
         agent.add(new Suggestion('yes'));
         return agent.add(new Suggestion('no'));
     }
-    function ReadTaskCreateNo(agent){
+    function ReadTaskCreateNo(agent) {
         agent.add(`No Problem, Now you can say one of the commands below ..`);
         agent.add(new Suggestion('create Task'));
         agent.add(new Suggestion('create Goal'));
         agent.add(new Suggestion('read All Goal'));
         return agent.add(new Suggestion('read All Task'));
+    }
+    function summary(agent) {
+        console.log(`DataArray1${JSON.stringify(DataArray1)}`);
+        if (agent.parameters.date) {
+            return agent.add(`Not Implememnt`);
+        } else {
+            return agent.add(`Sorry, i didn't really hear what you were saying. Mind if you repeat that one more time?`);
+        }
     }
     /*****************************************************Select **************************************/
     function selectGoal(agent) {
@@ -639,7 +647,8 @@ function master(request, response) {
     intentMap.set('read.task', readTask);
     intentMap.set('read.task.create.yes', ReadTaskCreateYes);
     intentMap.set('read.task.create.no', ReadTaskCreateNo);
-    // intentMap.set('summary', summary);
+    intentMap.set('summary', summary);
+    //Add 4 intent for change task start and end date
     /*******************************************Select Intent********************************************/
     intentMap.set('goal.select', selectGoal);
     intentMap.set('task.select', selectTask);
